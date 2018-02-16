@@ -6,6 +6,8 @@ Also supports optional Redux action creator generation.
 
 Tested against JSON services.
 
+This fork includes automatic decorator support, allowing the data types to be read through typescript Metadata Reflection
+
 ## Install
 
 In your project

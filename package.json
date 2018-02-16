@@ -1,19 +1,19 @@
 {
-  "name": "openapi-client",
-  "version": "0.12.1",
-  "description": "Generate ES6 or TypeScript service integration code from an OpenAPI spec.",
+  "name": "@josepmc/openapi-client",
+  "version": "0.12.1-1",
+  "description": "Generate ES6 or TypeScript service integration code from an OpenAPI spec with Decorator support.",
   "author": {
-    "name": "Mike Stead",
-    "url": "https://github.com/mikestead"
+    "name": "Josep Mateu Clemente",
+    "url": "https://github.com/josepmc"
   },
   "license": "MIT",
-  "homepage": "https://github.com/mikestead/openapi-client",
+  "homepage": "https://github.com/josepmc/openapi-client",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mikestead/openapi-client.git"
+    "url": "https://github.com/josepmc/openapi-client.git"
   },
   "bugs": {
-    "url": "https://github.com/mikestead/openapi-client/issues"
+    "url": "https://github.com/josepmc/openapi-client/issues"
   },
   "engines": {
     "node": ">=4.0.0",
@@ -60,6 +60,7 @@
     "expect": "^1.20.1",
     "mocha": "^2.5.3",
     "shx": "^0.1.2",
+    "ts-node": "^4.1.0",
     "tslint": "^3.10.2",
     "typescript": "^1.8.10",
     "typings": "^1.0.5"

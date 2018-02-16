@@ -15,7 +15,7 @@ export function genSpecFile(spec: ApiSpec, options: ClientOptions) {
 
 function renderSpecView(spec: ApiSpec, options: ClientOptions): string {
   const view = {
-    host: spec.host,
+    host: options.host || spec.host,
     schemes: spec.schemes,
     basePath: spec.basePath,
     contentTypes: spec.contentTypes,
@@ -23,7 +23,7 @@ function renderSpecView(spec: ApiSpec, options: ClientOptions): string {
     securityDefinitions: spec.securityDefinitions
   }
   const type = (options.language === 'ts') ? ': api.OpenApiSpec' : ''
-  return `${options.language === 'ts' ? '/// <reference path="../types.ts"/>': ''}
+  return `${options.language === 'ts' ? '/// <reference path="../types.ts"/>' : ''}
 // Auto-generated, edits will be overwritten
 const spec${type} = ${stringify(view)}${ST}
 export default spec${ST}

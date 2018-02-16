@@ -31,7 +31,7 @@ export function formatDocDescription(description: string): string {
 
 export function getDocType(param: any): string {
   if (!param) {
-    return 'object'
+    return 'Object'
   } else if (param.$ref) {
     const type = param.$ref.split('/').pop()
     return `module:types.${type}`
@@ -47,24 +47,74 @@ export function getDocType(param: any): string {
       return 'object[]'
     }
   } else if (param.type === 'integer') {
-    return 'number'
+    return 'Number'
   } else if (param.type === 'string' && (param.format === 'date-time' || param.format === 'date')) {
-    return 'date'
+    return 'Date'
+  } else if (param.type === 'string') {
+    return 'String'
   } else {
     return param.type || 'object'
   }
 }
 
+export let enums: { [k: string]: string } = {}
+
+export function resetEnums() {
+  enums = {}
+}
+
+
+export function createLogParameter(type: string) {
+  if (type.endsWith('[]')) {
+    type = `${type.substr(0, type.length - 2)}, true`
+  }
+  return `@logParameter(${type})`
+}
+
+export function logParameterHeader() {
+  return `import 'reflect-metadata';
+export function operations(target: any) {
+  Reflect.defineMetadata('classType', 'operations', target)
+}
+export function optional(target: any, key: string, index?: number) {
+    let metadata = Reflect.getMetadata(key, target) || []
+    let current = { index: index, optional: true }
+    let elId = metadata.findIndex(el => el.index === index)
+    if(elId !== -1) metadata[elId] = { ...metadata[elId], ...current }
+    else metadata.push(current)
+    Reflect.defineMetadata(key, metadata, target)
+}
+export function logParameter(type: Object, isArray: boolean = false) {
+  return function (target: any, key: string, index?: number) {
+    let metadata = Reflect.getMetadata(key, target) || []
+    let current = { index: index, type: type, isArray: isArray }
+    let elId = metadata.findIndex(el => el.index === index)
+    if(elId !== -1) metadata[elId] = { ...metadata[elId], ...current }
+    else metadata.push(current)
+    Reflect.defineMetadata(key, metadata, target)
+  }
+}
+`
+}
+
+export function generateEnumName(cls: string[]) {
+  return cls.join('').replace(/[\/\\\+\.\:]/g, '')
+}
+
 export function getTSParamType(param: any, inTypesModule?: boolean): string {
   if (!param) {
-    return 'any'
+    return 'Object'
   } else if (param.enum) {
-    if (!param.type || param.type === 'string') return `'${param.enum.join(`'|'`)}'`
-    else if (param.type === 'number') return `${param.enum.join(`|`)}`
+    let key = generateEnumName(param.enum)
+    let value = ''
+    if (!param.type || param.type === 'string') value = `'${param.enum.join(`','`)}'`
+    else if (param.type === 'number') value = `${param.enum.join(`,`)}`
+    if (!enums[key]) enums[key] = `export enum ${key} { ${value} }`
+    return `enums.${key}`
   }
   if (param.$ref) {
     const type = param.$ref.split('/').pop()
-    return inTypesModule 
+    return inTypesModule
       ? type
       : `api.${type}`
   } else if (param.schema) {
@@ -72,30 +122,33 @@ export function getTSParamType(param: any, inTypesModule?: boolean): string {
   } else if (param.type === 'array') {
     if (param.items.type) {
       if (param.items.enum) {
-        return `(${getTSParamType(param.items, inTypesModule)})[]`
+        return `${getTSParamType(param.items, inTypesModule)}[]`
       } else {
         return `${getTSParamType(param.items, inTypesModule)}[]`
       }
     } else if (param.items.$ref) {
       const type = param.items.$ref.split('/').pop()
-      return inTypesModule 
+      return inTypesModule
         ? `${type}[]`
         : `api.${type}[]`
     } else {
-      return 'any[]'
+      return 'Object[]'
     }
   } else if (param.type === 'object') {
     if (param.additionalProperties) {
       const extraProps = param.additionalProperties
       return `{[key: string]: ${getTSParamType(extraProps, inTypesModule)}}`
     }
-    return 'any'
-  } else if (param.type === 'integer') {
-    return 'number'
+    return 'Object'
+  } else if (param.type === 'integer' || param.type === 'number') {
+    return 'Number'
   } else if (param.type === 'string' && (param.format === 'date-time' || param.format === 'date')) {
     return 'Date'
-  }
-  else {
+  } else if (param.type === 'string') {
+    return 'String'
+  } else if (param.type === 'boolean') {
+    return 'Boolean'
+  } else {
     return param.type || 'any'
   }
 }
