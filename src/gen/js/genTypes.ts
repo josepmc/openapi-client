@@ -1,9 +1,10 @@
 import { writeFileSync, join } from '../util'
-import { DOC, SP, ST, getDocType, getTSParamType, formatDocDescription } from './support'
+import { DOC, SP, ST, getDocType, getTSParamType, formatDocDescription, logParameterHeader, createLogParameter, enums } from './support'
 
 export default function genTypes(spec: ApiSpec, options: ClientOptions) {
   const file = genTypesFile(spec, options)
-  writeFileSync(file.path, file.contents)
+  writeFileSync(file.file.path, file.file.contents)
+  return file.enums
 }
 
 export function genTypesFile(spec: ApiSpec, options: ClientOptions) {
@@ -11,8 +12,10 @@ export function genTypesFile(spec: ApiSpec, options: ClientOptions) {
   join(lines, renderHeader())
   join(lines, renderDefinitions(spec, options))
   return {
-    path: `${options.outDir}/types.${options.language}`,
-    contents: lines.join('\n')
+    file: {
+      path: `${options.outDir}/types.${options.language}`,
+      contents: lines.join('\n')
+    }, enums: Object.keys(enums).map(k => enums[k])
   }
 }
 
@@ -20,6 +23,9 @@ function renderHeader() {
   const lines = []
   lines.push(`/** @module types */`)
   lines.push(`// Auto-generated, edits will be overwritten`)
+  lines.push(`import 'reflect-metadata'${ST}`)
+  lines.push(`import { logParameter, optional } from './utils'${ST}`)
+  lines.push(`import * as enums from './enums'${ST}`)
   lines.push(``)
   return lines
 }
@@ -27,7 +33,7 @@ function renderHeader() {
 function renderDefinitions(spec: ApiSpec, options: ClientOptions): string[] {
   const isTs = (options.language === 'ts')
   const defs = spec.definitions || {}
-  const typeLines = isTs ? [`namespace api {`] : undefined
+  const typeLines = isTs ? [`export namespace api {`] : undefined
   const docLines = []
   Object.keys(defs).forEach(name => {
     const def = defs[name]
@@ -56,7 +62,7 @@ function renderTsType(name, def, options) {
     lines.push(DOC + def.description.trim().replace(/\n/g, `\n$${DOC}${SP}`))
     lines.push(` */`)
   }
-  lines.push(`export interface ${name} {`)
+  lines.push(`export class ${name} {`)
 
   const required = def.required || []
   const props = Object.keys(def.properties || {})
@@ -83,8 +89,8 @@ function renderTsInheritance(name: string, allOf: any[], options: ClientOptions)
   const ref = allOf[0]
   const parentName = ref.$ref.split('/').pop()
   const lines = renderTsType(name, allOf[1], options)
-  if (lines[0].startsWith('export interface')) lines.shift()
-  lines.unshift(`export interface ${name} extends ${parentName} {`)
+  if (lines[0].startsWith('export class')) lines.shift()
+  lines.unshift(`export class ${name} extends ${parentName} {`)
   return lines
 }
 
@@ -97,7 +103,7 @@ function renderTsTypeProp(prop: string, info: any, required: boolean): string[] 
     lines.push(`${SP} */`)
   }
   const req = required ? '' : '?'
-  lines.push(`${SP}${prop}${req}: ${type}${ST}`)
+  lines.push(`${SP}${required ? '@optional ' : ''}${createLogParameter(type + ST)} ${prop}${req}: ${type}${ST} = undefined;`)
   return lines
 }
 
@@ -139,10 +145,10 @@ export interface OperationSecurity {
 }
 
 export interface OperationParamGroups {
-  header?: {[key: string]: string}${ST}
-  path?: {[key: string]: string|number|boolean}${ST}
-  query?: {[key: string]: string|string[]|number|boolean}${ST}
-  formData?: {[key: string]: string|number|boolean}${ST}
+  header?: {[key: string]: string|String}${ST}
+  path?: {[key: string]: string|number|boolean|String|Number|Boolean}${ST}
+  query?: {[key: string]: string|string[]|number|boolean|String|String[]|Number|Boolean|Object|Object[]}${ST}
+  formData?: {[key: string]: string|number|boolean|String|Number|Boolean}${ST}
   body?: any${ST}
 }
 
@@ -283,7 +289,7 @@ function renderDocInheritance(name: string, allOf: any[]) {
   return lines
 }
 
-function verifyAllOf(name:string, allOf: any[]) {
+function verifyAllOf(name: string, allOf: any[]) {
   // Currently we interpret allOf as inheritance. Not strictly correct
   // but seems to be how most model inheritance in Swagger and is consistent
   // with other code generation tool

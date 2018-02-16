@@ -1,30 +1,35 @@
 import { writeFileSync, join, groupOperationsByGroupName, camelToUppercase, getBestResponse } from '../util'
-import { DOC, SP, ST, getDocType, getTSParamType } from './support'
+import { DOC, SP, ST, getDocType, getTSParamType, enums, resetEnums, logParameterHeader, createLogParameter, generateEnumName } from './support'
 
 export default function genOperations(spec: ApiSpec, operations: ApiOperation[], options: ClientOptions) {
   const files = genOperationGroupFiles(spec, operations, options)
-  files.forEach(file => writeFileSync(file.path, file.contents))
+  files.files.forEach(file => writeFileSync(file.path, file.contents))
+  return files.enums
 }
 
 export function genOperationGroupFiles(spec: ApiSpec, operations: ApiOperation[], options: ClientOptions) {
   const groups = groupOperationsByGroupName(operations)
   const files = []
+  let allEnums = []
   for (let name in groups) {
     const group = groups[name]
     const lines = []
     join(lines, renderHeader(name, spec, options))
-    join(lines, renderOperationGroup(group, renderOperation, spec, options))
     if (options.language === 'ts') {
       join(lines, renderOperationGroup(group, renderOperationParamType, spec, options))
     }
     join(lines, renderOperationGroup(group, renderOperationInfo, spec, options))
-
+    lines.push(`@operations export class ${name} {`)
+    join(lines, renderOperationGroup(group, renderOperation, spec, options))
+    lines.push('}')
+    allEnums = allEnums.concat(Object.keys(enums).map(k => enums[k]))
+    resetEnums()
     files.push({
       path: `${options.outDir}/${name}.${options.language}`,
       contents: lines.join('\n')
     })
   }
-  return files
+  return { files: files, enums: allEnums }
 }
 
 function renderHeader(name: string, spec: ApiSpec, options: ClientOptions): string[] {
@@ -34,8 +39,12 @@ function renderHeader(name: string, spec: ApiSpec, options: ClientOptions): stri
   }
   lines.push(`/** @module ${name} */`)
   lines.push(`// Auto-generated, edits will be overwritten`)
+  lines.push(`import 'reflect-metadata'${ST}`)
+  lines.push(`import { logParameter, optional, operations } from './utils'${ST}`)
+  lines.push(`import { api } from './types'${ST}`)
   lines.push(`import * as gateway from './gateway'${ST}`)
-  lines.push('')
+  lines.push(`import * as enums from './enums'${ST}`)
+  lines.push(``)
   return lines
 }
 
@@ -100,7 +109,7 @@ function renderDocParam(param) {
   return `${DOC}@param {${getDocType(param)}} ${name} ${description}`
 }
 
-function renderDocReturn(op:ApiOperation): string {
+function renderDocReturn(op: ApiOperation): string {
   const response = getBestResponse(op)
   let description = response ? response.description || '' : ''
   description = description.trim().replace(/\n/g, `\n${DOC}${SP}`)
@@ -119,7 +128,7 @@ function renderOperationBlock(spec: ApiSpec, op: ApiOperation, options: ClientOp
 function renderOperationSignature(op: ApiOperation, options: ClientOptions): string[] {
   const paramSignature = renderParamSignature(op, options)
   const rtnSignature = renderReturnSignature(op, options)
-  return [ `export function ${op.id}(${paramSignature})${rtnSignature} {` ]
+  return [`public ${op.id}(${paramSignature})${rtnSignature} {`]
 }
 
 export function renderParamSignature(op: ApiOperation, options: ClientOptions, pkg?: string): string {
@@ -130,22 +139,23 @@ export function renderParamSignature(op: ApiOperation, options: ClientOptions, p
   const optParam = renderOptionalParamsSignature(op, optional, options, pkg)
   if (optParam.length) funcParams.push(optParam)
 
-  return funcParams.map(p => p.join(': ')).join(', ')
+  return funcParams.join(', ')
 }
 
-function renderRequiredParamsSignature(required: ApiOperationParam[], options: ClientOptions): string[][] {
-  return required.reduce<string[][]>((a, param) => {
+function renderRequiredParamsSignature(required: ApiOperationParam[], options: ClientOptions): string[] {
+  return required.reduce<string[]>((a, param) => {
     a.push(getParamSignature(param, options))
     return a
   }, [])
 }
 
 function renderOptionalParamsSignature(op: ApiOperation, optional: ApiOperationParam[], options: ClientOptions, pkg?: string) {
-  if (!optional.length) return []
+  if (!optional.length) return ''
   if (!pkg) pkg = ''
   const s = options.language === 'ts' ? '?' : ''
-  const param = [`options${s}`]
-  if (options.language === 'ts') param.push(`${pkg}${op.id[0].toUpperCase() + op.id.slice(1)}Options`)
+  let param = `options${s}`
+  let type = `${pkg}${op.id[0].toUpperCase() + op.id.slice(1)}Options`
+  if (options.language === 'ts') param = `@optional ${createLogParameter(type)} ${param}: ${pkg}${type}`
   return param
 }
 
@@ -155,9 +165,9 @@ function renderReturnSignature(op: ApiOperation, options: ClientOptions): string
   return `: Promise<api.Response<${getTSParamType(response)}>>`
 }
 
-function getParamSignature(param: ApiOperationParam, options: ClientOptions): string[] {
-  const signature = [getParamName(param.name)]
-  if (options.language === 'ts') signature.push(getTSParamType(param))
+function getParamSignature(param: ApiOperationParam, options: ClientOptions): string {
+  let signature = getParamName(param.name)
+  if (options.language === 'ts') signature = `${createLogParameter(getTSParamType(param))} ${signature}: ${getTSParamType(param)}`
   return signature
 }
 
@@ -203,6 +213,10 @@ function groupParams(groups: any, param: ApiOperationParam): any {
     group.push(`${SP.repeat(3)}${realName}: ${str}`)
   } else if (param.required && param.name === name && name === realName) {
     group.push(`${SP.repeat(3)}${realName}`)
+  } else if (param.schema && param.schema['enum'] && param.schema['enum'].length > 1) {
+    group.push(`${SP.repeat(3)}${realName}: ${value}`)
+  } else if (param.schema && param.schema['type'] === 'array' && param.schema['items'].type === 'integer') {
+    group.push(`${SP.repeat(3)}${realName}: ${value}.map(toString)`)
   } else {
     group.push(`${SP.repeat(3)}${realName}: ${value}`)
   }
@@ -219,22 +233,22 @@ function renderParamGroup(name: string, groupLines: string[], last: boolean): st
 }
 
 function renderRequestCall(op: ApiOperation, options: ClientOptions) {
-  const params = op.parameters.length ? ', parameters': ''
-  return [ `${SP}return gateway.request(${op.id}Operation${params})${ST}`, '}' ]
+  const params = op.parameters.length ? ', parameters' : ''
+  return [`${SP}return gateway.request(${op.id}Operation${params})${ST}`, '}']
 }
 
 function renderOperationParamType(spec: ApiSpec, op: ApiOperation, options: ClientOptions): string[] {
   const optional = op.parameters.filter(param => !param.required)
   if (!optional.length) return []
   const lines = []
-  lines.push(`export interface ${op.id[0].toUpperCase() + op.id.slice(1)}Options {`)
+  lines.push(`export class ${op.id[0].toUpperCase() + op.id.slice(1)}Options {`)
   optional.forEach(param => {
     if (param.description) {
       lines.push(`${SP}/**`)
       lines.push(`${SP}${DOC}` + (param.description || '').trim().replace(/\n/g, `\n${SP}${DOC}${SP}`))
       lines.push(`${SP} */`)
     }
-    lines.push(`${SP}${getParamName(param.name)}?: ${getTSParamType(param)}${ST}`)
+    lines.push(`${SP}@optional ${createLogParameter(getTSParamType(param))} ${getParamName(param.name)}?: ${getTSParamType(param)}${ST} = undefined`)
   })
   lines.push('}')
   lines.push('')
@@ -255,7 +269,7 @@ function renderOperationInfo(spec: ApiSpec, op: ApiOperation, options: ClientOpt
   if (hasBody && op.contentTypes.length) {
     lines.push(`${SP}contentTypes: ['${op.contentTypes.join("','")}'],`)
   }
-  lines.push(`${SP}method: '${op.method}'${op.security ? ',': ''}`)
+  lines.push(`${SP}method: '${op.method}'${op.security ? ',' : ''}`)
   if (op.security && op.security.length) {
     const secLines = renderSecurityInfo(op.security)
     lines.push(`${SP}security: [`)
@@ -272,11 +286,11 @@ function renderSecurityInfo(security: ApiOperationSecurity[]): string[] {
     const scopes = sec.scopes
     const secLines = []
     secLines.push(`${SP.repeat(2)}{`)
-    secLines.push(`${SP.repeat(3)}id: '${sec.id}'${scopes ? ',': ''}`)
+    secLines.push(`${SP.repeat(3)}id: '${sec.id}'${scopes ? ',' : ''}`)
     if (scopes) {
       secLines.push(`${SP.repeat(3)}scopes: ['${scopes.join(`', '`)}']`)
     }
-    secLines.push(`${SP.repeat(2)}}`)
+    secLines.push(`${SP.repeat(2)}},`)
     return secLines
   }).reduce((a, b) => a.concat(b))
 }
