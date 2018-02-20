@@ -216,7 +216,7 @@ function groupParams(groups: any, param: ApiOperationParam): any {
   } else if (param.schema && param.schema['enum'] && param.schema['enum'].length > 1) {
     group.push(`${SP.repeat(3)}${realName}: ${value}`)
   } else if (param.schema && param.schema['type'] === 'array' && param.schema['items'].type === 'integer') {
-    group.push(`${SP.repeat(3)}${realName}: ${value}.map(toString)`)
+    group.push(`${SP.repeat(3)}${realName}: ${value} ? ${value}.map(toString) : ${value}`)
   } else {
     group.push(`${SP.repeat(3)}${realName}: ${value}`)
   }

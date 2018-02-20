@@ -16,16 +16,18 @@ export function genSpecFile(spec: ApiSpec, options: ClientOptions) {
 function renderSpecView(spec: ApiSpec, options: ClientOptions): string {
   const view = {
     host: options.host || spec.host,
-    schemes: spec.schemes,
+    schemes: options.schemes || spec.schemes,
     basePath: spec.basePath,
     contentTypes: spec.contentTypes,
     accepts: spec.accepts,
-    securityDefinitions: spec.securityDefinitions
+    securityDefinitions: options.securityDefinitions || spec.securityDefinitions || (spec as any).components.securitySchemes,
+    timeout: options.timeout
   }
   const type = (options.language === 'ts') ? ': api.OpenApiSpec' : ''
   return `${options.language === 'ts' ? '/// <reference path="../types.ts"/>' : ''}
 // Auto-generated, edits will be overwritten
-const spec${type} = ${stringify(view)}${ST}
+let spec${type} = ${stringify(view)}${ST}
+spec.getAuthorization = ${options.getAuthorization}
 export default spec${ST}
 `
 }

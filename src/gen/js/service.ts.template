@@ -32,11 +32,12 @@ export function request(op: api.OperationInfo, parameters?: api.OperationParamGr
 }
 
 function acquireRights(op: api.OperationInfo, spec: api.OpenApiSpec, options: api.ServiceOptions): Promise<api.OperationRights> {
-	if (op.security && options.getAuthorization) {
+	let getAuthorization = options.getAuthorization || spec.getAuthorization
+	if (op.security && getAuthorization) {
 		return op.security.reduce<Promise<api.OperationRights>>((promise, security) => {
 			return promise.then(rights => {
 				const securityDefinition = spec.securityDefinitions[security.id];;
-				return options.getAuthorization(security, securityDefinition, op)
+				return getAuthorization(security, securityDefinition, op)
 							.then(auth => {
 								rights[security.id] = auth;;
 								return rights;;
@@ -52,7 +53,8 @@ function makeFetchRequest(req: api.ServiceRequest): Promise<Response> {
 		compress: true,
 		method: (req.method || 'get').toUpperCase(),
 		headers: req.headers,
-		body: req.body ? JSON.stringify(req.body) : undefined
+		body: req.body ? JSON.stringify(req.body) : undefined,
+		timeout: spec.timeout || 2000
 	};;
 
 	if (options.fetchOptions) {

@@ -6,6 +6,10 @@ interface ClientOptions {
   indent?: '2' | '4' | 'tab'
   semicolon?: boolean
   host?: string
+  getAuthorization?: Function | string
+  securityDefinitions?: any
+  schemes?: any
+  timeout?: number
 }
 
 interface ApiRequestData {
