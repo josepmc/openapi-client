@@ -90,7 +90,7 @@ function renderTsInheritance(name: string, allOf: any[], options: ClientOptions)
   const parentName = ref.$ref.split('/').pop()
   const lines = renderTsType(name, allOf[1], options)
   if (lines[0].startsWith('export class')) lines.shift()
-  lines.unshift(`export class ${name} extends ${parentName} {`)
+  lines.unshift(`export class ${name.replace(/\-/, '')} extends ${parentName} {`)
   return lines
 }
 

@@ -128,7 +128,7 @@ function renderOperationBlock(spec: ApiSpec, op: ApiOperation, options: ClientOp
 function renderOperationSignature(op: ApiOperation, options: ClientOptions): string[] {
   const paramSignature = renderParamSignature(op, options)
   const rtnSignature = renderReturnSignature(op, options)
-  return [`public ${op.id}(${paramSignature})${rtnSignature} {`]
+  return [`public ${op.id.replace(/\-/, '')}(${paramSignature})${rtnSignature} {`]
 }
 
 export function renderParamSignature(op: ApiOperation, options: ClientOptions, pkg?: string): string {
@@ -154,7 +154,7 @@ function renderOptionalParamsSignature(op: ApiOperation, optional: ApiOperationP
   if (!pkg) pkg = ''
   const s = options.language === 'ts' ? '?' : ''
   let param = `options${s}`
-  let type = `${pkg}${op.id[0].toUpperCase() + op.id.slice(1)}Options`
+  let type = `${pkg}${(op.id[0].toUpperCase() + op.id.slice(1)).replace(/\-/, '')}Options`
   if (options.language === 'ts') param = `@optional ${createLogParameter(type)} ${param}: ${pkg}${type}`
   return param
 }
@@ -234,14 +234,14 @@ function renderParamGroup(name: string, groupLines: string[], last: boolean): st
 
 function renderRequestCall(op: ApiOperation, options: ClientOptions) {
   const params = op.parameters.length ? ', parameters' : ''
-  return [`${SP}return gateway.request(${op.id}Operation${params})${ST}`, '}']
+  return [`${SP}return gateway.request(${op.id.replace(/\-/, '')}Operation${params})${ST}`, '}']
 }
 
 function renderOperationParamType(spec: ApiSpec, op: ApiOperation, options: ClientOptions): string[] {
   const optional = op.parameters.filter(param => !param.required)
   if (!optional.length) return []
   const lines = []
-  lines.push(`export class ${op.id[0].toUpperCase() + op.id.slice(1)}Options {`)
+  lines.push(`export class ${(op.id[0].toUpperCase() + op.id.slice(1)).replace(/\-/, '')}Options {`)
   optional.forEach(param => {
     if (param.description) {
       lines.push(`${SP}/**`)
@@ -259,9 +259,9 @@ function renderOperationParamType(spec: ApiSpec, op: ApiOperation, options: Clie
 function renderOperationInfo(spec: ApiSpec, op: ApiOperation, options: ClientOptions): string[] {
   const lines = []
   if (options.language === 'ts') {
-    lines.push(`const ${op.id}Operation: api.OperationInfo = {`)
+    lines.push(`const ${op.id.replace(/\-/, '')}Operation: api.OperationInfo = {`)
   } else {
-    lines.push(`const ${op.id}Operation = {`)
+    lines.push(`const ${op.id.replace(/\-/, '')}Operation = {`)
   }
   lines.push(`${SP}path: '${op.path}',`)
 

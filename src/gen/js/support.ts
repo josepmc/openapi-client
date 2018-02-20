@@ -98,7 +98,7 @@ export function logParameter(type: Object, isArray: boolean = false) {
 }
 
 export function generateEnumName(cls: string[]) {
-  return cls.join('').replace(/[\/\\\+\.\:]/g, '')
+  return cls.join('').replace(/[\/\\\+\.\:\-]/g, '')
 }
 
 export function getTSParamType(param: any, inTypesModule?: boolean): string {

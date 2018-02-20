@@ -1,6 +1,6 @@
 {
   "name": "@josepmc/openapi-client",
-  "version": "0.12.1-2",
+  "version": "0.12.1-3",
   "description": "Generate ES6 or TypeScript service integration code from an OpenAPI spec with Decorator support.",
   "author": {
     "name": "Josep Mateu Clemente",
