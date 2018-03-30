@@ -28,6 +28,7 @@ function renderSpecView(spec: ApiSpec, options: ClientOptions): string {
 // Auto-generated, edits will be overwritten
 let spec${type} = ${stringify(view)}${ST}
 spec.getAuthorization = ${options.getAuthorization}
+spec.applyAuthorization = ${options.applyAuthorization}
 export default spec${ST}
 `
 }

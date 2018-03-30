@@ -7,6 +7,7 @@ interface ClientOptions {
   semicolon?: boolean
   host?: string
   getAuthorization?: Function | string
+  applyAuthorization?: Function | string
   securityDefinitions?: any
   schemes?: any
   timeout?: number

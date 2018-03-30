@@ -32,7 +32,7 @@ export function request(op: api.OperationInfo, parameters?: api.OperationParamGr
 }
 
 function acquireRights(op: api.OperationInfo, spec: api.OpenApiSpec, options: api.ServiceOptions): Promise<api.OperationRights> {
-	let getAuthorization = options.getAuthorization || spec.getAuthorization
+	let getAuthorization = options.getAuthorization || spec.getAuthorization;;
 	if (op.security && getAuthorization) {
 		return op.security.reduce<Promise<api.OperationRights>>((promise, security) => {
 			return promise.then(rights => {
@@ -184,8 +184,17 @@ function resolveAuthHeaderName(headerName: string) {
 
 function applyAuthorization(req: any, rights: any, spec: api.OpenApiSpec) {
 	Object.keys(rights).forEach(name => {
-		const rightsInfo: api.OperationRightsInfo = rights[name];;
-		const definition = spec.securityDefinitions[name];;
+		let rightsInfo: api.OperationRightsInfo;;
+		let definition;;
+		if (spec.applyAuthorization) {
+			let applied = spec.applyAuthorization(req, rights, spec, name);;
+			if(applied === true) return;;
+			rightsInfo = applied.rightsInfo;;
+			definition = applied.definition;;
+		} else {
+			rightsInfo = rights[name];;
+			definition = spec.securityDefinitions[name];;
+		}
 		switch (definition.type) {
 			case 'basic':
 				const creds = `${rightsInfo.username}:${rightsInfo.password}`;;

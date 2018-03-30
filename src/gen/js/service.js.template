@@ -27,11 +27,12 @@ export function request(op, parameters, attempt) {
 }
 
 function acquireRights(op, spec, options) {
-	if (op.security && options.getAuthorization) {
+	let getAuthorization = options.getAuthorization || spec.getAuthorization;;
+	if (op.security && getAuthorization) {
 		return op.security.reduce((promise, security) => {
 			return promise.then(rights => {
 				const securityDefinition = spec.securityDefinitions[security.id];;
-				return options.getAuthorization(security, securityDefinition, op)
+				return getAuthorization(security, securityDefinition, op)
 							.then(auth => {
 								rights[security.id] = auth;;
 								return rights;;
@@ -176,8 +177,17 @@ function resolveAuthHeaderName(headerName){
 
 function applyAuthorization(req, rights, spec) {
 	Object.keys(rights).forEach(name => {
-		const rightsInfo = rights[name];;
-		const definition = spec.securityDefinitions[name];;
+		let rightsInfo;;
+		let definition;;
+		if (spec.applyAuthorization) {
+			let applied = spec.applyAuthorization(req, rights, spec, name);;
+			if(applied === true) return;;
+			rightsInfo = applied.rightsInfo;;
+			definition = applied.definition;;
+		} else {
+			rightsInfo = rights[name];;
+			definition = spec.securityDefinitions[name];;
+		}
 		switch (definition.type) {
 			case 'basic':
 				const creds = `${rightsInfo.username}:${rightsInfo.password}`;;
